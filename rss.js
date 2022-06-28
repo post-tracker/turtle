@@ -32,7 +32,7 @@ const promiseGet = function promiseGet( requestUrl, headers = false ) {
                 headers: headers,
                 hostname: urlParts.hostname,
                 path: urlParts.path,
-                port: urlParts.port || 443,
+                port: urlParts.port || 443,
             };
         }
 
@@ -81,27 +81,27 @@ const getGames = async function getGames() {
 };
 
 const buildRSS = async function buildRSS( game ){
-    const postsData = await promiseGet( `https://api.developertracker.com/${ game.identifier }/posts?excludeService=Twitter` );
+    const postsData = await promiseGet( `https://api.developertracker.com/${ game.identifier }/posts?excludeService=Twitter` );
     let posts;
 
     try {
         posts = JSON.parse( postsData );
     } catch ( parseFail ) {
-        console.error( `Failed to parse posts for ${ game.identifier }` );
+        console.error( `Failed to parse posts for ${ game.identifier }` );
         throw parseFail;
     }
 
     let siteUrl = game.hostname;
 
     if ( game.hostname === 'developertracker.com' ) {
-        siteUrl = `${ siteUrl }/${ game.identifier }/`;
+        siteUrl = `${ siteUrl }/${ game.identifier }/`;
     }
 
     const feed = new RSS( {
-        title: `${ game.name } dev feed`,
+        title: `${ game.name } dev feed`,
         description: 'Feed with the latest posts from the developers',
-        site_url: `https://${ siteUrl }`,
-        feed_url: `https://${ siteUrl }/rss/`,
+        site_url: `https://${ siteUrl }`,
+        feed_url: `https://${ siteUrl }/rss/`,
         language: 'en-us',
         pubDate: new Date(),
         ttl: 10,
@@ -113,7 +113,7 @@ const buildRSS = async function buildRSS( game ){
         const formattedUrl = post.url.replace( '/&/g', '&amp;' );
 
         if ( guidCache.includes( formattedUrl ) ) {
-            console.error( `Duplicate guid: ${ formattedUrl }` );
+            console.error( `Duplicate guid: ${ formattedUrl }` );
             continue;
         } else {
             guidCache.push( formattedUrl );
