@@ -20,7 +20,7 @@
   "homepage": "https://github.com/post-tracker/turtle#readme",
   "dependencies": {
     "aws-sdk": "^2.184.0",
-    "dotenv": "^4.0.0",
+    "dotenv": "^16.0.1",
     "rss": "^1.2.2"
   }
 }
