@@ -14,7 +14,7 @@ if ( !process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY ) {
     throw new Error( 'AWS auth not configured' );
 }
 
-const API_HOST = 'api.kokarn.com';
+const API_HOST = 'api2.developertracker.com';
 const S3_BUCKET = 'developer-tracker';
 
 const s3 = new AWS.S3( {
