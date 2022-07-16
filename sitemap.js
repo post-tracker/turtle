@@ -31,6 +31,9 @@ let sitemapIndex = `<?xml version="1.0" encoding="UTF-8"?>
 const sitemapTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
 
+let finished = 0;
+let failed = 0;
+
 function shuffle(array) {
     let currentIndex = array.length,  randomIndex;
   
@@ -109,8 +112,8 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
     } catch ( parseFail ) {
         console.error( `Failed to parse posts for ${ gameIdentifier }` );
 
-        console.error(parseFail);
-        console.log(postsDataResponse);
+        // console.error(parseFail);
+        // console.log(postsDataResponse);
 
         return false;
     }
@@ -151,6 +154,8 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
                     if(!sitemap){
                         console.log(`Failed to build complete sitemap for ${game.identifier}`);
 
+                        failed = failed + 1;
+
                         return false;
                     }
 
@@ -159,6 +164,8 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 
                     fs.writeFileSync(`sitemap/sitemap.${game.identifier}.xml`, sitemap);
                     uploadXML(`sitemap.${game.identifier}.xml`);
+
+                    finished = finished + 1;
                 });
         });
 
@@ -172,8 +179,9 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 </sitemapindex>`;
 
     fs.writeFileSync(`sitemap/sitemap.xml`, sitemapIndex);
-    console.timeEnd(`build-sitemaps`);
-
     uploadXML('sitemap.xml');
+    
+    console.timeEnd(`build-sitemaps`);
+    console.log(`Done with ${finished}/${finished + failed} successfull sitemaps`);
 })();
 
