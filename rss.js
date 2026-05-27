@@ -41,6 +41,9 @@ const promiseGet = function promiseGet( requestUrl, headers = false ) {
         const request = https.get( httpsGet, ( response ) => {
             if ( response.statusCode < 200 || response.statusCode > 299 ) {
                 reject( new Error( `Failed to load ${ requestUrl }, status code: ${ response.statusCode }` ) );
+                request.destroy();
+
+                return;
             }
 
             const body = [];
@@ -137,21 +140,32 @@ const buildRSS = async function buildRSS( game ){
         ContentType: 'application/rss+xml',
     };
 
-    s3.putObject( params, ( uploadError, data ) => {
-        if ( uploadError ) {
-            console.error( uploadError )
-        } else {
-            console.log( `Successfully uploaded rss for ${ game.identifier }` );
-        }
-    } );
+    await s3.putObject( params ).promise();
+    console.log( `Successfully uploaded rss for ${ game.identifier }` );
 };
 
-getGames()
-    .then( ( games ) => {
-        for ( const game of games ) {
-            buildRSS( game );
-        }
+const run = async function run() {
+    const games = await getGames();
+    const results = await Promise.allSettled( games.map( ( game ) => {
+        return buildRSS( game );
+    } ) );
+
+    const failures = results.filter( ( result ) => {
+        return result.status === 'rejected';
+    } );
+
+    for ( const failure of failures ) {
+        console.error( failure.reason );
+    }
+
+    return failures.length;
+};
+
+run()
+    .then( ( failureCount ) => {
+        process.exit( failureCount > 0 ? 1 : 0 );
     } )
-    .catch( ( someError ) => {
-        console.error( someError );
+    .catch( ( fatalError ) => {
+        console.error( fatalError );
+        process.exit( 1 );
     } );
