@@ -161,11 +161,24 @@ const run = async function run() {
     return failures.length;
 };
 
-run()
-    .then( ( failureCount ) => {
-        process.exit( failureCount > 0 ? 1 : 0 );
-    } )
-    .catch( ( fatalError ) => {
-        console.error( fatalError );
-        process.exit( 1 );
-    } );
+const RUN_INTERVAL_MS = Number( process.env.RUN_INTERVAL_MS ) || ( 10 * 60 * 1000 );
+
+const loop = async function loop() {
+    while ( true ) {
+        try {
+            const failureCount = await run();
+
+            if ( failureCount > 0 ) {
+                console.error( `Run completed with ${ failureCount } failures` );
+            }
+        } catch ( fatalError ) {
+            console.error( fatalError );
+        }
+
+        await new Promise( ( resolve ) => {
+            setTimeout( resolve, RUN_INTERVAL_MS );
+        } );
+    }
+};
+
+loop();
