@@ -3,6 +3,7 @@ const url = require( 'url' );
 
 const RSS = require( 'rss' );
 const AWS = require( 'aws-sdk' );
+const cron = require( 'node-cron' );
 
 require( 'dotenv' ).config();
 
@@ -161,24 +162,32 @@ const run = async function run() {
     return failures.length;
 };
 
-const RUN_INTERVAL_MS = Number( process.env.RUN_INTERVAL_MS ) || ( 10 * 60 * 1000 );
+const SCHEDULE = process.env.RUN_SCHEDULE || '*/10 * * * *';
 
-const loop = async function loop() {
-    while ( true ) {
-        try {
-            const failureCount = await run();
+let running = false;
 
-            if ( failureCount > 0 ) {
-                console.error( `Run completed with ${ failureCount } failures` );
-            }
-        } catch ( fatalError ) {
-            console.error( fatalError );
+const tick = async function tick() {
+    if ( running ) {
+        console.log( 'Previous run still in progress, skipping' );
+
+        return;
+    }
+
+    running = true;
+
+    try {
+        const failureCount = await run();
+
+        if ( failureCount > 0 ) {
+            console.error( `Run completed with ${ failureCount } failures` );
         }
-
-        await new Promise( ( resolve ) => {
-            setTimeout( resolve, RUN_INTERVAL_MS );
-        } );
+    } catch ( fatalError ) {
+        console.error( fatalError );
+    } finally {
+        running = false;
     }
 };
 
-loop();
+cron.schedule( SCHEDULE, tick );
+
+tick();
