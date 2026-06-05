@@ -2,10 +2,11 @@ const https = require( 'https' );
 const url = require( 'url' );
 
 const RSS = require( 'rss' );
-const AWS = require( 'aws-sdk' );
 const cron = require( 'node-cron' );
 
 require( 'dotenv' ).config();
+
+const upload = require( './r2' );
 
 if ( !process.env.API_TOKEN ) {
     throw new Error( 'Unable to load api key' );
@@ -16,12 +17,6 @@ if ( !process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY ) {
 }
 
 const API_HOST = 'api.developertracker.com';
-const S3_BUCKET = 'developer-tracker';
-
-const s3 = new AWS.S3( {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
-} );
 
 const promiseGet = function promiseGet( requestUrl, headers = false ) {
     return new Promise( ( resolve, reject ) => {
@@ -133,15 +128,7 @@ const buildRSS = async function buildRSS( game ){
         } );
     }
 
-    const params = {
-        Bucket: S3_BUCKET,
-        Key: `${ game.identifier }/rss`,
-        Body: feed.xml( { indent: true } ),
-        CacheControl: 'public, max-age=600',
-        ContentType: 'application/rss+xml',
-    };
-
-    await s3.putObject( params ).promise();
+    await upload( `${ game.identifier }/rss`, feed.xml( { indent: true } ), 'application/rss+xml' );
     console.log( `Successfully uploaded rss for ${ game.identifier }` );
 };
 

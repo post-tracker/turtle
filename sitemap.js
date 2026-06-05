@@ -1,9 +1,10 @@
 const fs = require('node:fs');
 
-const AWS = require( 'aws-sdk' );
 const pLimit = require('p-limit');
 
 require( 'dotenv' ).config();
+
+const upload = require( './r2' );
 
 const limit = pLimit(5);
 
@@ -18,12 +19,6 @@ if ( !process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY ) {
 }
 
 const API_HOST = 'api.developertracker.com';
-const S3_BUCKET = 'developer-tracker';
-
-const s3 = new AWS.S3( {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_KEY,
-} );
 
 let sitemapIndex = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
@@ -66,22 +61,13 @@ const addPath = (sitemap, url, changefreq = 'hourly') => {
     </url>`;
 };
 
-const uploadXML = (filename) => {
-    const params = {
-        Bucket: S3_BUCKET,
-        Key: `${filename}`,
-        Body: fs.readFileSync(`./sitemap/${filename}`, 'utf-8'),
-        CacheControl: 'public, max-age=600',
-        ContentType: 'application/xml',
-    };
-
-    s3.putObject( params, ( uploadError, data ) => {
-        if ( uploadError ) {
-            console.error( uploadError )
-        } else {
-            console.log( `Successfully uploaded sitemap ${filename}` );
-        }
-    } );
+const uploadXML = async (filename) => {
+    try {
+        await upload( filename, fs.readFileSync(`./sitemap/${filename}`, 'utf-8'), 'application/xml' );
+        console.log( `Successfully uploaded sitemap ${filename}` );
+    } catch ( uploadError ) {
+        console.error( uploadError );
+    }
 }
 
 const getGames = async function getGames() {
@@ -163,9 +149,10 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 </urlset>`;
 
                     fs.writeFileSync(`sitemap/sitemap.${game.identifier}.xml`, sitemap);
-                    uploadXML(`sitemap.${game.identifier}.xml`);
 
                     finished = finished + 1;
+
+                    return uploadXML(`sitemap.${game.identifier}.xml`);
                 });
         });
 
@@ -179,8 +166,8 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 </sitemapindex>`;
 
     fs.writeFileSync(`sitemap/sitemap.xml`, sitemapIndex);
-    uploadXML('sitemap.xml');
-    
+    await uploadXML('sitemap.xml');
+
     console.timeEnd(`build-sitemaps`);
     console.log(`Done with ${finished}/${finished + failed} successfull sitemaps`);
 })();
