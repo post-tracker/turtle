@@ -7,6 +7,7 @@ const cron = require( 'node-cron' );
 require( 'dotenv' ).config();
 
 const upload = require( './r2' );
+const buildAllSitemaps = require( './sitemap' );
 
 if ( !process.env.API_TOKEN ) {
     throw new Error( 'Unable to load api key' );
@@ -178,3 +179,33 @@ const tick = async function tick() {
 cron.schedule( SCHEDULE, tick );
 
 tick();
+
+// Sitemaps are far heavier to build than RSS (they paginate every post of
+// every game), so they run on their own, slower cron instead of the RSS cycle.
+const SITEMAP_SCHEDULE = process.env.SITEMAP_SCHEDULE || '0 * * * *';
+
+let sitemapRunning = false;
+
+const sitemapTick = async function sitemapTick() {
+    if ( sitemapRunning ) {
+        console.log( 'Previous sitemap run still in progress, skipping' );
+
+        return;
+    }
+
+    sitemapRunning = true;
+
+    try {
+        await buildAllSitemaps();
+    } catch ( sitemapError ) {
+        console.error( sitemapError );
+    } finally {
+        sitemapRunning = false;
+    }
+};
+
+cron.schedule( SITEMAP_SCHEDULE, sitemapTick );
+
+// Build once on startup so a freshly deployed container populates sitemaps
+// immediately instead of waiting up to an hour for the first cron tick.
+sitemapTick();

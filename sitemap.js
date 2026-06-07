@@ -20,37 +20,24 @@ if ( !process.env.AWS_ACCESS_KEY || !process.env.AWS_SECRET_KEY ) {
 
 const API_HOST = 'api.developertracker.com';
 
-let sitemapIndex = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
-
 const sitemapTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
 
-let finished = 0;
-let failed = 0;
-
 function shuffle(array) {
     let currentIndex = array.length,  randomIndex;
-  
+
     // While there remain elements to shuffle.
     while (currentIndex != 0) {
-  
+
         // Pick a remaining element.
         randomIndex = Math.floor(Math.random() * currentIndex);
         currentIndex--;
-  
+
         // And swap it with the current element.
         [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
     }
-  
-    return array;
-};
 
-const addSitemap = (identifier) => {
-    sitemapIndex = `${sitemapIndex}
-    <sitemap>
-        <loc>https://developertracker.com/sitemap.${identifier}.xml</loc>
-    </sitemap>`;
+    return array;
 };
 
 const addPath = (sitemap, url, changefreq = 'hourly') => {
@@ -90,18 +77,24 @@ const getGames = async function getGames() {
 const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset = 0){
     console.log(`Loading ${POSTS_PER_REQUEST} posts for ${gameIdentifier} with offset ${offset}`);
     let posts;
-    let postsDataResponse;
-    
+
     try {
-        postsDataResponse = await fetch( `https://${API_HOST}/${ gameIdentifier }/posts?limit=${POSTS_PER_REQUEST}&offset=${offset}` );
+        const postsDataResponse = await fetch( `https://${API_HOST}/${ gameIdentifier }/posts?limit=${POSTS_PER_REQUEST}&offset=${offset}` );
         posts = await postsDataResponse.json();
     } catch ( parseFail ) {
-        console.error( `Failed to parse posts for ${ gameIdentifier }` );
+        console.error( `Failed to load posts for ${ gameIdentifier } at offset ${ offset }` );
 
-        // console.error(parseFail);
-        // console.log(postsDataResponse);
+        // Keep whatever we've collected rather than failing the whole run.
+        return sitemap;
+    }
 
-        return false;
+    // The API caps offset (MAX_POST_OFFSET) and answers an over-cap request with
+    // an error object, not a list. fetch() doesn't throw on a 4xx, so guard the
+    // shape here: a non-array means "no more pages" — stop recursing instead of
+    // crashing on posts.data being undefined (which used to fail the entire run
+    // for any game larger than the offset cap).
+    if ( !posts || !Array.isArray( posts.data ) ) {
+        return sitemap;
     }
 
     for ( const post of posts.data ) {
@@ -115,13 +108,24 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
     return sitemap;
 };
 
-(async () => {
+const buildAllSitemaps = async function buildAllSitemaps() {
+    // State is local to each run so repeated (scheduled) invocations don't
+    // accumulate the index or the counters across runs.
+    let finished = 0;
+    let failed = 0;
+    const indexedGames = [];
+
+    if ( !fs.existsSync( 'sitemap' ) ) {
+        fs.mkdirSync( 'sitemap' );
+    }
+
     fs.readdirSync('sitemap').forEach(f => {
         if(f === '.gitignore'){
             return true;
         }
         fs.rmSync(`sitemap/${f}`);
     });
+
     console.time(`build-sitemaps`);
     let games = await getGames();
     let allGameSitemaps = [];
@@ -129,8 +133,8 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
     games = shuffle(games);
 
     for ( const game of games ) {
-        addSitemap(game.identifier);
-        
+        indexedGames.push(game.identifier);
+
         const sitemapPromise = limit(() => {
             console.time(`build-sitemap-${game.identifier}`);
             let gameSitemap = addPath(sitemapTemplate, `/${ game.identifier }/`);
@@ -158,11 +162,17 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 
         allGameSitemaps.push(sitemapPromise);
     }
-    
+
     console.log('Waiting for all sitemaps to finish');
     await Promise.all(allGameSitemaps);
 
-    sitemapIndex = `${sitemapIndex}
+    const sitemapIndex = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${indexedGames.map((identifier) => {
+        return `
+    <sitemap>
+        <loc>https://developertracker.com/sitemap.${identifier}.xml</loc>
+    </sitemap>`;
+    }).join('')}
 </sitemapindex>`;
 
     fs.writeFileSync(`sitemap/sitemap.xml`, sitemapIndex);
@@ -170,5 +180,15 @@ const buildSitemap = async function buildSitemap(sitemap, gameIdentifier, offset
 
     console.timeEnd(`build-sitemaps`);
     console.log(`Done with ${finished}/${finished + failed} successfull sitemaps`);
-})();
+};
 
+module.exports = buildAllSitemaps;
+
+// Allow running standalone: `node sitemap.js`
+if ( require.main === module ) {
+    buildAllSitemaps().catch( ( sitemapError ) => {
+        console.error( sitemapError );
+
+        process.exit( 1 );
+    } );
+}
