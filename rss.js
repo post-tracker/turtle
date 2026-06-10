@@ -91,16 +91,18 @@ const buildRSS = async function buildRSS( game ){
         throw parseFail;
     }
 
+    // Games on the shared domain are served from www (the canonical public
+    // host); the stored hostname is the bare apex, so map it across here.
     let siteUrl = game.hostname;
 
     if ( game.hostname === 'developertracker.com' ) {
-        siteUrl = `${ siteUrl }/${ game.identifier }/`;
+        siteUrl = `www.developertracker.com/${ game.identifier }`;
     }
 
     const feed = new RSS( {
         title: `${ game.name } dev feed`,
         description: 'Feed with the latest posts from the developers',
-        site_url: `https://${ siteUrl }`,
+        site_url: `https://${ siteUrl }/`,
         feed_url: `https://${ siteUrl }/rss/`,
         language: 'en-us',
         pubDate: new Date(),

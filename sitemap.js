@@ -43,7 +43,7 @@ function shuffle(array) {
 const addPath = (sitemap, url, changefreq = 'hourly') => {
     return `${sitemap}
     <url>
-        <loc>https://developertracker.com${url}</loc>
+        <loc>https://www.developertracker.com${url}</loc>
         <changefreq>${changefreq}</changefreq>
     </url>`;
 };
@@ -170,7 +170,7 @@ const buildAllSitemaps = async function buildAllSitemaps() {
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${indexedGames.map((identifier) => {
         return `
     <sitemap>
-        <loc>https://developertracker.com/sitemap.${identifier}.xml</loc>
+        <loc>https://www.developertracker.com/sitemap.${identifier}.xml</loc>
     </sitemap>`;
     }).join('')}
 </sitemapindex>`;
