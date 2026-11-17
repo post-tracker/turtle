@@ -103,7 +103,7 @@ const buildRSS = async function buildRSS( game ){
         title: `${ game.name } dev feed`,
         description: 'Feed with the latest posts from the developers',
         site_url: `https://${ siteUrl }/`,
-        feed_url: `https://${ siteUrl }/rss/`,
+        feed_url: `https://${ siteUrl }/rss`,
         language: 'en-us',
         pubDate: new Date(),
         ttl: 10,
